@@ -49,7 +49,7 @@ min_minutes = st.sidebar.slider(
     help="Only include players averaging at least this many minutes per game"
 )
 
-run_button = st.sidebar.button("Run Trade Matcher", type="primary", use_container_width=True)
+st.sidebar.markdown("*Results update automatically when you change the sliders above.*")
 
 # --- Tabs ---
 tab_dashboard, tab_teams, tab_trades, tab_eval = st.tabs([
@@ -59,35 +59,30 @@ tab_dashboard, tab_teams, tab_trades, tab_eval = st.tabs([
 
 # --- Data loading & pipeline ---
 @st.cache_data
-def load_and_run(players_per_team: int, min_min: float):
-    """Run the full pipeline and cache results."""
-    # Temporarily override config
-    import src.config as cfg
-    original_avail = cfg.PLAYERS_AVAILABLE_PER_TEAM
-    original_min = cfg.MIN_MINUTES_THRESHOLD
-    cfg.PLAYERS_AVAILABLE_PER_TEAM = players_per_team
-    cfg.MIN_MINUTES_THRESHOLD = min_min
+def load_player_data():
+    """Fetch and cache raw player stats (only hits API once)."""
+    return fetch_player_stats()
 
-    df = fetch_player_stats()
-    # Re-filter by minutes threshold
+
+@st.cache_data
+def run_pipeline(players_per_team: int, min_min: float):
+    """Run the full pipeline with the given parameters."""
+    df = load_player_data()
+    # Filter by minutes threshold
     df = df[df["min"] >= min_min].reset_index(drop=True)
     classified = classify_all_players(df)
     gaps = analyze_team_gaps(classified)
     prefs = generate_preferences(classified, gaps)
-    avail_df = identify_available_players(classified)
+    avail_df = identify_available_players(classified, players_per_team=players_per_team)
     available_only = avail_df[avail_df.available_for_trade]
     cycles = run_ttc(classified, prefs, available_only, gaps)
     explanations = explain_all_cycles(cycles, gaps)
 
-    # Restore config
-    cfg.PLAYERS_AVAILABLE_PER_TEAM = original_avail
-    cfg.MIN_MINUTES_THRESHOLD = original_min
-
     return classified, gaps, prefs, avail_df, cycles, explanations
 
 
-# Always load data (cached)
-classified, gaps, prefs, avail_df, cycles, explanations = load_and_run(
+# Run pipeline with current slider values (cached per parameter combo)
+classified, gaps, prefs, avail_df, cycles, explanations = run_pipeline(
     players_available, min_minutes
 )
 

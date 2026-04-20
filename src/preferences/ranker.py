@@ -6,11 +6,17 @@ import pandas as pd
 from src.config import PLAYERS_AVAILABLE_PER_TEAM
 
 
-def identify_available_players(classified_players: pd.DataFrame) -> pd.DataFrame:
+def identify_available_players(
+    classified_players: pd.DataFrame,
+    players_per_team: int | None = None,
+) -> pd.DataFrame:
     """
     For each team, mark the bottom N players by minutes as available for trade.
     Returns the full DataFrame with an added 'available_for_trade' boolean column.
     """
+    if players_per_team is None:
+        players_per_team = PLAYERS_AVAILABLE_PER_TEAM
+
     result = classified_players.copy()
     result["available_for_trade"] = False
 
@@ -18,7 +24,7 @@ def identify_available_players(classified_players: pd.DataFrame) -> pd.DataFrame
         # Sort by minutes ascending — lowest-minute players are most tradeable
         team_idx = roster.sort_values("min").index
         # Mark bottom N as available
-        available_idx = team_idx[:PLAYERS_AVAILABLE_PER_TEAM]
+        available_idx = team_idx[:players_per_team]
         result.loc[available_idx, "available_for_trade"] = True
 
     return result
