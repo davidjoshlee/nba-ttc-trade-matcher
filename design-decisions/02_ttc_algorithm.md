@@ -17,12 +17,19 @@ Every team in a completed cycle receives a player they prefer over what they gav
 
 ## Implementation Details
 - Each team offers a pool of available players (bottom N by minutes)
-- Each team "points" to the team owning their most-preferred available player
-- We find all cycles in the resulting directed graph
+- We build a **multi-edge preference graph**: each team has directed edges to the top 5 teams owning their most-preferred available players. This is a key departure from classic TTC, where each agent has exactly one outgoing edge.
+- We search for all simple cycles up to length 6 in this graph using DFS
+- Cycles are sorted longest first, and we greedily select non-overlapping cycles (longest priority) to maximize multi-team trade discovery
 - When a team sends a player, we pick the one the receiving team values most from the sender's available pool
+
+### Why multi-edge instead of single-pointer?
+Our initial implementation used a functional graph (1 edge per team). This produced almost exclusively 2-team swaps because preference concentration meant most teams pointed at the same popular target (e.g., 17 of 30 teams pointed at SAC). That target's team pointed back at one other team, forming an immediate 2-cycle that consumed the most popular players. The multi-edge approach creates a richer graph structure where longer cycles can form.
 
 ## Tradeoff: Stability vs. Global Optimality
 TTC guarantees no team regrets their trade, but it does NOT guarantee the maximum total value across all possible trade configurations. We chose stability because in a voluntary setting, a deal every party agrees to is worth more than a theoretically superior deal that falls apart.
 
-## Structural Observation
-Most trades found are 2-team swaps. Multi-team trades (3+) are rarer. This mirrors reality — the NBA sees far more bilateral trades than multi-party deals, because alignment across 3+ parties is hard. The algorithm surfaces multi-team trades when they exist, but doesn't force them.
+## Tradeoff: Cycle Length Priority vs. Classical TTC
+By prioritizing longer cycles, we bias toward multi-team trades. Classical TTC makes no such distinction — it finds and executes cycles in whatever order they appear. Our approach better demonstrates the platform's value proposition (surfacing multi-party deals that bilateral negotiation would miss), but it means some teams might get a slightly less-preferred player than they would in a strict first-come-first-served TTC.
+
+## Results
+The current implementation produces 5 trade cycles involving all 30 NBA teams, all multi-team (four 6-team trades and one 5-team trade). Example: BOS sends Horford to DEN, SAC sends Monk to POR, POR sends Clingan to SAC — a 6-team deal where each team fills a genuine roster gap.

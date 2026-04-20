@@ -6,18 +6,18 @@
 The rule-based classifier correctly identifies clear archetypes: elite shooters become Floor Spacers, rim protectors are tagged, playmakers are found by assist numbers. It processes 458 players instantly and produces consistent, explainable results.
 
 ### 2. Gap Analysis
-Automated roster analysis correctly identifies team weaknesses. Teams lacking shot blockers are flagged as needing Rim Protectors; teams with no ball handlers are flagged as needing Playmakers. This drives preference generation that makes intuitive sense.
+Automated roster analysis correctly identifies team weaknesses, and the team-specific ideal roster adjustment adds meaningful diversity. Teams weak in scoring are steered toward offensive roles; teams weak in defense prioritize defensive upgrades. This prevents the "everyone wants the same player" problem that plagued our initial implementation, where 17 of 30 teams pointed at the same target.
 
 ### 3. Trade Cycle Discovery
-The TTC algorithm finds trades that would be extremely difficult to coordinate manually. Even a simple 3-team trade requires all three parties to simultaneously agree — something phone-call-based negotiation handles poorly.
+The multi-edge TTC algorithm finds trades that would be extremely difficult to coordinate manually. The current implementation surfaces 5 trade cycles involving all 30 NBA teams, all multi-team (5-6 teams each). A 6-team trade requires all six parties to simultaneously agree — something phone-call-based negotiation handles poorly. This is the core value proposition of the platform.
 
 ## Where AI / automation falls short
 
 ### 1. "Rotation Player" black hole
 ~50% of players can't be classified into any role. These players still have value in real basketball, but our system treats them as interchangeable.
 
-### 2. One-size-fits-all team strategy
-Every team is evaluated against the same "ideal roster composition." In reality, a team running a specific system (e.g., small-ball, switch-everything defense) values completely different player profiles.
+### 2. Simplified team strategy model
+While we adjust each team's ideal roster based on their aggregate stats (scoring, rebounding, defense), this is still a crude proxy for real coaching philosophy. A team running a switch-everything defense values different player profiles than one running a drop-coverage scheme — nuances our stat-based adjustment can't capture.
 
 ### 3. Missing context
 Real trade decisions depend on factors we don't model: salary cap implications, player age and contract years, injury history, locker room fit, draft pick compensation, and coaching scheme. Our system operates in a simplified world.

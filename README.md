@@ -21,9 +21,9 @@ The app will open in your browser. NBA data is fetched from NBA.com on first run
 
 1. **Data** — Pull current NBA rosters and per-game stats via `nba_api`
 2. **Role Classification** — Assign each player an archetype (Floor Spacer, Rim Protector, Playmaker, etc.) based on stat thresholds
-3. **Gap Analysis** — Compare each team's role composition to an ideal roster template to identify needs
-4. **Preference Ranking** — Rank available players from other teams by how well they fill each team's gaps
-5. **TTC Algorithm** — Find stable trading cycles where every team in the cycle receives a player they prefer
+3. **Gap Analysis** — Compare each team's role composition to a team-specific ideal (adjusted by their statistical profile) to identify needs
+4. **Preference Ranking** — Rank available players from other teams by how well they fill each team's gaps, with quality-scaled scoring for differentiation
+5. **TTC Algorithm** — Build a multi-edge preference graph and find stable trading cycles (up to 6 teams) where every participant improves
 6. **Narrative Generation** — Produce plain-language explanations of why each trade makes sense
 
 ## Project Structure
@@ -65,7 +65,7 @@ See the `design-decisions/` folder for detailed write-ups on:
 |-----------|---------|-------------|
 | `PLAYERS_AVAILABLE_PER_TEAM` | 7 | How many players each team puts on the trade block |
 | `MIN_MINUTES_THRESHOLD` | 10.0 | Minimum minutes/game to be included |
-| `IDEAL_ROSTER_COMPOSITION` | (see file) | Target role counts for a balanced roster |
+| `IDEAL_ROSTER_COMPOSITION` | (see file) | Base target role counts (adjusted per-team by stats) |
 
 These are also adjustable via sliders in the Streamlit sidebar.
 

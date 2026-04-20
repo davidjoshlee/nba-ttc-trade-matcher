@@ -289,11 +289,12 @@ with tab_eval:
 
     **Where it works well**:
     - Correctly identifies obvious needs (team with no rim protector values shot blockers)
-    - Creates diverse enough preferences to drive multi-party trades
+    - Team-specific ideal rosters (adjusted by aggregate stats) create diverse preferences — teams weak in scoring prioritize offensive roles, teams weak in defense prioritize defensive roles
+    - Quality-scaled Rotation Player scoring ensures meaningful differentiation among bench players
 
     **Where it fails**:
     - Real GMs consider factors we don't model: chemistry, age, contract, injury history, scheme fit
-    - All teams use the same "ideal roster composition" template — in reality, team strategies vary wildly
+    - Team-specific adjustments are based on aggregate stats, not coaching philosophy or front-office strategy
     - The urgency scoring is simplistic (linear gap from ideal) — real trade value is nonlinear
     """)
 
@@ -316,17 +317,19 @@ with tab_eval:
     literary quality, templates are the right call.
     """)
 
-    st.subheader("4. TTC Algorithm")
+    st.subheader("4. TTC Algorithm (Multi-Edge Variant)")
     st.markdown("""
-    **What it does**: Finds stable trading cycles where every participant improves.
+    **What it does**: Builds a multi-edge preference graph (each team has edges to their top 5 preferred teams) and finds stable trading cycles up to 6 teams, prioritizing longer cycles.
 
     **Where it works well**:
     - Guarantees individual rationality — no team would undo their trade
-    - Naturally surfaces multi-team deals that bilateral negotiation would miss
+    - Multi-edge graph + longest-first cycle selection reliably surfaces multi-team deals (5-6 teams each)
     - Computationally efficient (runs in milliseconds for 30 teams)
 
     **Where it fails**:
     - Does not guarantee global optimality — a different configuration might create more total value
-    - Single-player-per-team constraint limits trade complexity (real NBA trades involve multiple players)
-    - All 2-team cycles are found first, which can "consume" teams before larger cycles form
+    - Single-player-per-team constraint limits trade complexity (real NBA trades involve multiple players + picks)
+    - Longest-first cycle prioritization means some teams may get a slightly less-preferred outcome than strict classical TTC
+
+    **Key iteration**: Our initial single-pointer graph produced almost exclusively 2-team swaps because 17 of 30 teams pointed at the same target (SAC). The multi-edge approach was critical to unlocking multi-party trades.
     """)
