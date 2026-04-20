@@ -49,14 +49,6 @@ min_minutes = st.sidebar.slider(
     help="Only include players averaging at least this many minutes per game"
 )
 
-st.sidebar.markdown("*Results update automatically when you change the sliders above.*")
-
-# --- Tabs ---
-tab_dashboard, tab_teams, tab_trades, tab_eval = st.tabs([
-    "Dashboard", "Team Explorer", "Trade Cycles", "AI Evaluation"
-])
-
-
 # --- Data loading & pipeline ---
 @st.cache_data
 def load_player_data():
@@ -81,10 +73,26 @@ def run_pipeline(players_per_team: int, min_min: float):
     return classified, gaps, prefs, avail_df, cycles, explanations
 
 
-# Run pipeline with current slider values (cached per parameter combo)
-classified, gaps, prefs, avail_df, cycles, explanations = run_pipeline(
-    players_available, min_minutes
+# Run pipeline with current slider values, with a visible spinner
+with st.spinner("Running trade matching algorithm..."):
+    classified, gaps, prefs, avail_df, cycles, explanations = run_pipeline(
+        players_available, min_minutes
+    )
+
+# Show current config in sidebar after pipeline runs
+avail_count = int(avail_df["available_for_trade"].sum())
+st.sidebar.markdown("---")
+st.sidebar.markdown("**Current Run**")
+st.sidebar.markdown(
+    f"- **{len(classified)}** players in pool\n"
+    f"- **{avail_count}** available for trade\n"
+    f"- **{len(cycles)}** trade cycles found"
 )
+
+# --- Tabs ---
+tab_dashboard, tab_teams, tab_trades, tab_eval = st.tabs([
+    "Dashboard", "Team Explorer", "Trade Cycles", "AI Evaluation"
+])
 
 # --- DASHBOARD TAB ---
 with tab_dashboard:
