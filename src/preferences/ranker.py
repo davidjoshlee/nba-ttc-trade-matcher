@@ -74,10 +74,12 @@ def generate_preferences(
                 secondary_urgency = urgency_by_role.get(player["secondary_role"], 0)
                 role_urgency = max(role_urgency, 0.5 * secondary_urgency)
 
-            # Rotation Players get a small baseline urgency so they can still
-            # participate in trades (every team wants depth upgrades)
+            # Rotation Players get a baseline urgency scaled by their quality,
+            # so better bench players are meaningfully preferred over worse ones.
+            # This creates differentiation in the preference graph.
             if role_urgency == 0:
-                role_urgency = 0.1
+                quality_preview = _player_quality_score(player)
+                role_urgency = 0.05 + 0.15 * max(0, quality_preview / 30.0)
 
             quality = _player_quality_score(player)
             pref_score = role_urgency * quality
