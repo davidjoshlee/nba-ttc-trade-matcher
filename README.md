@@ -51,13 +51,13 @@ group_project/
 
 ## Design Decisions
 
-See the `design-decisions/` folder for detailed write-ups on:
+See the `design-decisions/` folder. Start with the **[Marketplace Overview](design-decisions/00_marketplace_overview.md)** for a full summary of the problem, platform architecture, design principles, and results. Then see the detailed implementation docs:
 
-1. **Role Taxonomy** — Why rule-based classification, how thresholds were set
-2. **TTC Algorithm** — Why TTC over stable matching or auctions
-3. **Preference Simulation** — How team needs drive automated rankings
-4. **Tech Stack** — Why Streamlit, nba_api, and no external AI API
-5. **AI Evaluation** — Where automation helps vs. where it falls short
+1. **[Role Taxonomy](design-decisions/01_role_taxonomy.md)** — Why rule-based classification, how thresholds were set
+2. **[TTC Algorithm](design-decisions/02_ttc_algorithm.md)** — Why TTC over stable matching or auctions, multi-edge graph design
+3. **[Preference Simulation](design-decisions/03_preference_simulation.md)** — Team-specific gap analysis, how needs drive rankings
+4. **[Tech Stack](design-decisions/04_tech_stack.md)** — Why Streamlit, nba_api, and no external AI API
+5. **[AI Evaluation](design-decisions/05_ai_evaluation.md)** — Where automation helps vs. where it falls short
 
 ## Key Parameters (in `src/config.py`)
 
