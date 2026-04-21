@@ -48,6 +48,7 @@ def _player_quality_score(row: pd.Series) -> float:
 def generate_preferences(
     classified_players: pd.DataFrame,
     team_gaps: dict[str, list[tuple[str, float]]],
+    players_per_team: int | None = None,
 ) -> dict[str, list[tuple[int, float]]]:
     """
     For each team, rank all available players from other teams based on
@@ -58,7 +59,9 @@ def generate_preferences(
     Preference score = urgency_of_needed_role * player_quality_score
     This means a player who fills a critical gap AND is high quality ranks highest.
     """
-    players_with_availability = identify_available_players(classified_players)
+    players_with_availability = identify_available_players(
+        classified_players, players_per_team=players_per_team
+    )
     available = players_with_availability[players_with_availability["available_for_trade"]]
 
     preferences = {}

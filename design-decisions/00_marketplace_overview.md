@@ -34,7 +34,7 @@ Assign each player one of 8 archetypes (Floor Spacer, Rim Protector, Playmaker, 
 For each team, compute a team-specific ideal roster composition based on their statistical profile. Teams weak in scoring get higher ideal counts for offensive roles; teams weak in defense prioritize defensive roles. Compare actual roster to ideal to produce an urgency-ranked list of needs per team.
 
 ### Stage 4: Preference Ranking
-For each team, rank all available players on other teams by how well they address the team's top needs. Preference score = role urgency × player quality. Available players are the bottom N by minutes on each roster (simulating what a GM would realistically trade). Each team ends up with a ranked preference list over ~140 available players from other teams.
+For each team, rank all available players on other teams by how well they address the team's top needs. Preference score = role urgency × player quality. Available players are the bottom N by minutes on each roster (simulating what a GM would realistically trade). Each team ends up with a ranked preference list over ~200 available players from other teams (at the default of 7 available per team).
 
 ### Stage 5: TTC Matching
 Build a multi-edge preference graph where each team has directed edges to the top 5 teams owning their most-preferred players. Search for all simple cycles up to length 6 using DFS. Select non-overlapping cycles greedily, longest first, to maximize multi-team trade discovery. Each team in a cycle sends a player and receives one.

@@ -2,8 +2,9 @@
 Role definitions for NBA players.
 
 Each role is defined by a set of stat thresholds. A player's "fit score" for a
-role is the average of how far above each threshold they are (in standard
-deviations), giving us a continuous measure rather than a binary yes/no.
+role is the MINIMUM ratio of (player_stat / threshold) across all required stats,
+with a small tiebreaker from the average. This ensures a player must meet ALL
+of a role's requirements — not just dominate one stat.
 
 Design decision: We use rule-based classification rather than ML because:
 1. It's transparent — we can explain exactly why a player got a role

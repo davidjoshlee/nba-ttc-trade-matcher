@@ -64,7 +64,7 @@ def run_pipeline(players_per_team: int, min_min: float):
     df = df[df["min"] >= min_min].reset_index(drop=True)
     classified = classify_all_players(df)
     gaps = analyze_team_gaps(classified)
-    prefs = generate_preferences(classified, gaps)
+    prefs = generate_preferences(classified, gaps, players_per_team=players_per_team)
     avail_df = identify_available_players(classified, players_per_team=players_per_team)
     available_only = avail_df[avail_df.available_for_trade]
     cycles = run_ttc(classified, prefs, available_only, gaps)

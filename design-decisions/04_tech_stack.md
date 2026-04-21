@@ -4,8 +4,8 @@
 - **Python 3.11+** — single language for everything
 - **nba_api** — NBA data from NBA.com
 - **pandas/numpy** — data manipulation
-- **networkx** — graph construction and cycle detection for TTC
-- **matplotlib** — network visualization
+- **networkx** — trade cycle network visualization in the dashboard
+- **matplotlib** — chart and graph rendering
 - **Streamlit** — web UI
 - **Git/GitHub** — collaboration
 

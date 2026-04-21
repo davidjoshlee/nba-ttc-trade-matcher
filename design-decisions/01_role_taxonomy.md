@@ -16,4 +16,20 @@ We classify NBA players into 8 archetypes (Floor Spacer, Rim Protector, Playmake
 We use the minimum ratio across all stat thresholds for a role, with a small tiebreaker from the average. This ensures a player must meet ALL of a role's requirements — not just dominate one stat. This fixed a bug where high-rebound guards were being classified as bigs.
 
 ## Thresholds
+
+Current values (defined in `src/roles/taxonomy.py`):
+
+| Role | Stat Thresholds |
+|------|----------------|
+| Floor Spacer | fg3a >= 5.0, fg3_pct >= 0.36 |
+| Rim Protector | blk >= 1.2, reb >= 7.0 |
+| Playmaker | ast >= 5.5, ast/tov >= 1.6 |
+| Paint Scorer | fg_pct >= 0.54, reb >= 6.0, pts >= 12.0 |
+| Two-Way Wing | stl >= 1.0, pts >= 14.0, reb >= 4.0 |
+| Stretch Big | reb >= 7.0, fg3a >= 2.0, fg3_pct >= 0.32 |
+| Defensive Anchor | stl+blk >= 2.2, min >= 27.0 |
+| Volume Scorer | pts >= 22.0, fga >= 17.0 |
+
+A player must score >= 0.85 on the minimum ratio across all thresholds to qualify for a role. Players below this get "Rotation Player."
+
 Thresholds were set by examining league-wide stat distributions and calibrating against known players (Curry → Floor Spacer, Gobert → Rim Protector, etc.). They are not learned from data — this is a limitation we acknowledge.
