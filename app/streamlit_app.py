@@ -26,13 +26,13 @@ from src.config import IDEAL_ROSTER_COMPOSITION
 
 # --- Page config ---
 st.set_page_config(
-    page_title="NBA Trade Matcher — TTC",
+    page_title="NBA DAVID — TTC",
     page_icon="🏀",
     layout="wide",
 )
 
 # --- Sidebar ---
-st.sidebar.title("NBA Trade Matcher")
+st.sidebar.title("NBA DAVID")
 st.sidebar.markdown("**Top Trading Cycles Algorithm**")
 st.sidebar.markdown("OIT 277 — Digital Platforms in AI")
 st.sidebar.markdown("---")
