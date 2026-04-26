@@ -129,9 +129,12 @@ st.markdown("""
     margin-bottom: 12px !important;
 }
 [data-testid="stExpander"] summary {
-    color: #E2E8F0 !important;
+    background: #D1D5DB !important;
+    color: #111827 !important;
     font-weight: 700 !important;
-    font-size: 15px !important;
+    font-size: 14px !important;
+    border-radius: 10px !important;
+    padding: 12px 16px !important;
 }
 
 /* Info/warning boxes */
@@ -280,10 +283,18 @@ with tab_dashboard:
             st.pyplot(fig)
             plt.close()
 
-            legend_html = "<div style='display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;'>"
+            st.markdown("<div style='font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:1px;margin-top:16px;margin-bottom:8px;'>Each color = one trade cycle</div>", unsafe_allow_html=True)
+            legend_html = "<div style='display:flex;flex-direction:column;gap:6px;'>"
             for i, cycle in enumerate(cycles):
                 color = CYCLE_COLORS[i % len(CYCLE_COLORS)]
-                legend_html += f"<span style='font-size:11px;color:{color};font-weight:600;'>● {' → '.join(cycle['cycle'])}</span>"
+                teams_str = " → ".join(cycle["cycle"])
+                legend_html += (
+                    f"<div style='display:flex;align-items:center;gap:10px;'>"
+                    f"<span style='width:12px;height:12px;border-radius:50%;background:{color};flex-shrink:0;display:inline-block;'></span>"
+                    f"<span style='font-size:12px;color:#CBD5E1;font-weight:600;'>{teams_str}</span>"
+                    f"<span style='font-size:11px;color:#64748B;'>({cycle['num_teams']}-team)</span>"
+                    f"</div>"
+                )
             legend_html += "</div>"
             st.markdown(legend_html, unsafe_allow_html=True)
 
@@ -346,11 +357,12 @@ with tab_teams:
         st.markdown(rc, unsafe_allow_html=True)
 
         st.markdown(f"<h3 style='color:#C89B3C;border-bottom:1px solid #1A2235;padding-bottom:8px;margin-top:28px;'>Preference Ranking — Players {selected_team} Would Most Want</h3>", unsafe_allow_html=True)
-        st.caption("Ranked by role urgency × quality score. Top 20 players from other teams.")
+        st.caption("Ranked by role urgency × quality score. 🟡 Own-team players highlighted — any trade must land a player ranked above these.")
 
         urgency_t = {role: max(u, 0) for role, u in gaps.get(selected_team, [])}
         pref_rows_t = []
-        for _, row in classified[classified["team_abbr"] != selected_team].iterrows():
+        for _, row in classified.iterrows():
+            is_own = row["team_abbr"] == selected_team
             role_urgency = urgency_t.get(row["primary_role"], 0)
             if row.get("secondary_role"):
                 role_urgency = max(role_urgency, 0.5 * urgency_t.get(row["secondary_role"], 0))
@@ -365,9 +377,17 @@ with tab_teams:
                 "REB": round(row["reb"], 1),
                 "AST": round(row["ast"], 1),
                 "Pref Score": round(role_urgency * quality_score(row), 2),
+                "_own": is_own,
             })
         pref_rows_t.sort(key=lambda x: x["Pref Score"], reverse=True)
-        st.dataframe(pd.DataFrame(pref_rows_t[:20]), use_container_width=True, hide_index=True)
+        pref_df_t = pd.DataFrame(pref_rows_t).drop(columns=["_own"])
+
+        def highlight_own_t(row):
+            if row["Team"] == selected_team:
+                return ["background-color: #2E2A0A; color: #D4C44A"] * len(row)
+            return [""] * len(row)
+
+        st.dataframe(pref_df_t.style.apply(highlight_own_t, axis=1), use_container_width=True, hide_index=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -432,14 +452,14 @@ with tab_trades:
                                 st.session_state[cache_key] = f"⚠️ {e}"
                     st.markdown(
                         f"<div style='background:#0C1828;border-left:3px solid #C89B3C;border-radius:0 8px 8px 0;"
-                        f"padding:14px 18px;font-size:14px;line-height:1.8;color:#94A3B8;font-style:italic;'>"
+                        f"padding:14px 18px;font-size:14px;line-height:1.8;color:#CBD5E1;font-style:italic;'>"
                         f"{st.session_state[cache_key]}</div>",
                         unsafe_allow_html=True,
                     )
                 else:
                     st.markdown(
-                        f"<div style='background:#0C1828;border-left:3px solid #1A2235;border-radius:0 8px 8px 0;"
-                        f"padding:14px 18px;font-size:13px;line-height:1.8;color:#6B7A99;font-style:italic;'>"
+                        f"<div style='background:#0C1828;border-left:3px solid #C89B3C;border-radius:0 8px 8px 0;"
+                        f"padding:14px 18px;font-size:14px;line-height:1.8;color:#CBD5E1;font-style:italic;'>"
                         f"{explanation['summary']}</div>",
                         unsafe_allow_html=True,
                     )
