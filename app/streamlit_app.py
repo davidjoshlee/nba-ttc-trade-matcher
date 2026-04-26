@@ -33,7 +33,7 @@ st.set_page_config(
 
 # --- Sidebar ---
 st.sidebar.title("NBA Trade Matcher")
-st.sidebar.markdown("**Top Trading Cycles Algorithm**")
+st.sidebar.markdown("**Leveraging the Top Trading Cycles Algorithm**")
 st.sidebar.markdown("OIT 277 — Digital Platforms in AI")
 st.sidebar.markdown("---")
 
