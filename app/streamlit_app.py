@@ -70,12 +70,6 @@ st.sidebar.markdown("**Leveraging the Top Trading Cycles Algorithm**")
 st.sidebar.markdown("OIT 277 — Digital Platforms in AI")
 st.sidebar.markdown("---")
 
-players_available = st.sidebar.slider(
-    "Players available per team",
-    min_value=3, max_value=10, value=7,
-    help="How many players each team puts on the trade block (bottom N by minutes played)"
-)
-
 min_minutes = st.sidebar.slider(
     "Minimum minutes/game",
     min_value=5.0, max_value=20.0, value=10.0, step=1.0,
@@ -100,35 +94,30 @@ def load_player_data():
 
 
 @st.cache_data
-def run_pipeline(players_per_team: int, min_min: float):
+def run_pipeline(min_min: float):
     """Run the full pipeline with the given parameters."""
     df = load_player_data()
-    # Filter by minutes threshold
     df = df[df["min"] >= min_min].reset_index(drop=True)
     classified = classify_all_players(df)
     gaps = analyze_team_gaps(classified)
-    prefs = generate_preferences(classified, gaps, players_per_team=players_per_team)
-    avail_df = identify_available_players(classified, players_per_team=players_per_team)
-    available_only = avail_df[avail_df.available_for_trade]
-    cycles = run_ttc(classified, prefs, available_only, gaps)
+    # All players are available for trade
+    avail_df = classified.copy()
+    avail_df["available_for_trade"] = True
+    prefs = generate_preferences(classified, gaps, players_per_team=len(classified))
+    cycles = run_ttc(classified, prefs, avail_df, gaps)
     explanations = explain_all_cycles(cycles, gaps)
 
     return classified, gaps, prefs, avail_df, cycles, explanations
 
 
-# Run pipeline with current slider values, with a visible spinner
 with st.spinner("Running trade matching algorithm..."):
-    classified, gaps, prefs, avail_df, cycles, explanations = run_pipeline(
-        players_available, min_minutes
-    )
+    classified, gaps, prefs, avail_df, cycles, explanations = run_pipeline(min_minutes)
 
 # Show current config in sidebar after pipeline runs
-avail_count = int(avail_df["available_for_trade"].sum())
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Current Run**")
 st.sidebar.markdown(
     f"- **{len(classified)}** players in pool\n"
-    f"- **{avail_count}** available for trade\n"
     f"- **{len(cycles)}** trade cycles found"
 )
 
@@ -195,60 +184,46 @@ with tab_teams:
 
     if selected_team:
         team_roster = classified[classified["team_abbr"] == selected_team].copy()
-        team_avail = avail_df[
-            (avail_df["team_abbr"] == selected_team) & avail_df["available_for_trade"]
-        ]
 
-        col1, col2 = st.columns([2, 1])
+        # Roster table
+        st.subheader(f"{selected_team} Roster")
+        display_cols = ["player_name", "primary_role", "secondary_role",
+                       "pts", "reb", "ast", "stl", "blk", "min"]
+        roster_display = team_roster[display_cols].sort_values("min", ascending=False).reset_index(drop=True)
+        st.dataframe(roster_display, use_container_width=True, hide_index=True)
 
-        with col1:
-            st.subheader(f"{selected_team} Roster")
-            display_cols = ["player_name", "primary_role", "secondary_role",
-                           "pts", "reb", "ast", "stl", "blk", "min"]
-            roster_display = team_roster[display_cols].sort_values("min", ascending=False)
-            roster_display = roster_display.reset_index(drop=True)
-            st.dataframe(roster_display, use_container_width=True, hide_index=True)
+        # Role composition below roster
+        st.subheader("Role Composition")
+        team_roles = team_roster["primary_role"].value_counts()
+        st.bar_chart(team_roles)
 
-        with col2:
-            st.subheader("Roster Gaps")
-            team_gap = gaps.get(selected_team, [])
-            for role, urgency in team_gap:
-                if urgency > 0:
-                    st.markdown(f"- **{role}**: urgency {urgency:.2f}")
-                elif urgency == 0:
-                    st.markdown(f"- {role}: balanced")
-                else:
-                    st.markdown(f"- ~~{role}~~: surplus ({urgency:.2f})")
+        # Preference ranking — all players from other teams
+        st.subheader(f"Preference Ranking — Players {selected_team} Would Most Want")
+        st.caption("Ranked by role urgency × quality score. Shows top 20 players from other teams.")
 
-            st.subheader("Role Composition")
-            team_roles = team_roster["primary_role"].value_counts()
-            st.bar_chart(team_roles)
+        def _quality(row):
+            return row["pts"] * 1.0 + row["reb"] * 0.8 + row["ast"] * 1.0 + row["stl"] * 2.0 + row["blk"] * 2.0 - row["tov"] * 1.5
 
-        # Available players
-        st.subheader(f"Players Available for Trade ({len(team_avail)})")
-        if not team_avail.empty:
-            avail_display = team_avail[["player_name", "primary_role", "pts", "reb", "ast", "min"]]
-            st.dataframe(avail_display.reset_index(drop=True), use_container_width=True, hide_index=True)
-
-        # Top preferences
-        st.subheader("Top 10 Preferred Available Players (from other teams)")
-        team_prefs = prefs.get(selected_team, [])[:10]
-        if team_prefs:
-            pref_rows = []
-            for pid, score in team_prefs:
-                player = classified[classified["player_id"] == pid]
-                if not player.empty:
-                    p = player.iloc[0]
-                    pref_rows.append({
-                        "Player": p["player_name"],
-                        "Team": p["team_abbr"],
-                        "Role": p["primary_role"],
-                        "PTS": p["pts"],
-                        "REB": p["reb"],
-                        "AST": p["ast"],
-                        "Pref Score": score,
-                    })
-            st.dataframe(pd.DataFrame(pref_rows), use_container_width=True, hide_index=True)
+        urgency_t = {role: max(u, 0) for role, u in gaps.get(selected_team, [])}
+        pref_rows_t = []
+        for _, row in classified[classified["team_abbr"] != selected_team].iterrows():
+            role_urgency = urgency_t.get(row["primary_role"], 0)
+            if row.get("secondary_role"):
+                role_urgency = max(role_urgency, 0.5 * urgency_t.get(row["secondary_role"], 0))
+            if role_urgency == 0:
+                q = _quality(row)
+                role_urgency = 0.05 + 0.15 * max(0, q / 30.0)
+            pref_rows_t.append({
+                "Player": row["player_name"],
+                "Team": row["team_abbr"],
+                "Role": row["primary_role"],
+                "PTS": round(row["pts"], 1),
+                "REB": round(row["reb"], 1),
+                "AST": round(row["ast"], 1),
+                "Pref Score": round(role_urgency * _quality(row), 2),
+            })
+        pref_rows_t.sort(key=lambda x: x["Pref Score"], reverse=True)
+        st.dataframe(pd.DataFrame(pref_rows_t[:20]), use_container_width=True, hide_index=True)
 
 # --- TRADE CYCLES TAB ---
 with tab_trades:
@@ -322,8 +297,9 @@ with tab_overview:
     st.subheader("Step 1 — Data Collection")
     st.markdown("""
     - Pulls live per-game stats for every NBA player from NBA.com
-    - Filters out players with **<10** minutes per game
-    - Result: ~458 players across all 30 teams
+    - Filters out players averaging **<10** minutes per game
+    - All remaining players are eligible to be traded — no artificial trade block restriction
+    - Result: ~458 players across all 30 teams, all available
     """)
 
     team_list_overview = sorted(classified["team_abbr"].unique())
@@ -545,7 +521,7 @@ with tab_overview:
 
     st.subheader("Step 4 — Preference Ranking")
     st.markdown("""
-    - For each team, all players available for trade from other teams are ranked by how well they fill that team's gaps
+    - For each team, every player from every other team is ranked by how well they fill that team's gaps
     - **Preference score** = role urgency × quality score
     - **Role urgency** — how badly does this team need the player's role? (from Step 3)
     - **Quality score** — a weighted sum of per-game stats (see table below)
