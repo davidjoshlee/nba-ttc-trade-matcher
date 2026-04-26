@@ -90,8 +90,8 @@ st.sidebar.markdown(
 )
 
 # --- Tabs ---
-tab_dashboard, tab_teams, tab_trades, tab_eval = st.tabs([
-    "Dashboard", "Team Explorer", "Trade Cycles", "AI Evaluation"
+tab_dashboard, tab_teams, tab_trades, tab_eval, tab_overview = st.tabs([
+    "Dashboard", "Team Explorer", "Trade Cycles", "AI Evaluation", "App Overview"
 ])
 
 # --- DASHBOARD TAB ---
@@ -252,6 +252,450 @@ with tab_trades:
 
                     st.markdown(f"> {detail}")
                     st.markdown("")
+
+# --- APP OVERVIEW TAB ---
+with tab_overview:
+    st.header("App Overview")
+    st.markdown("This app identifies multi-team NBA trade opportunities using a 6-stage data pipeline. Here's what happens under the hood.")
+    st.markdown("---")
+
+    st.subheader("Step 1 — Data Collection")
+    st.markdown("""
+    - Pulls live per-game stats for every NBA player from NBA.com
+    - Filters out players with **<10** minutes per game
+    - Result: ~458 players across all 30 teams
+    """)
+
+    team_list_overview = sorted(classified["team_abbr"].unique())
+    selected_team_overview = st.selectbox("Select a team to explore its data", team_list_overview, index=team_list_overview.index("TOR"), key="overview_team")
+
+    team_data = classified[classified["team_abbr"] == selected_team_overview][
+        ["player_name", "pts", "reb", "ast", "stl", "blk", "min", "gp"]
+    ].sort_values("min", ascending=False).reset_index(drop=True)
+
+    st.markdown(f"**{selected_team_overview}** — {len(team_data)} players in dataset")
+    st.dataframe(team_data, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+
+    st.subheader("Step 2 — Role Classification")
+    st.markdown("""
+    - Each player is assigned one of 8 archetypes based on their per-game stats
+    - Players must meet **all** stat thresholds for a role — one standout stat isn't enough
+    - Players who don't fit any archetype are labeled **Rotation Player**
+    """)
+
+    st.markdown("**Role Classification Rubric** — minimum thresholds a player must meet to qualify for each role:")
+    rubric_data = {
+        "Role": ["Floor Spacer", "Rim Protector", "Playmaker", "Paint Scorer", "Two-Way Wing", "Stretch Big", "Defensive Anchor", "Volume Scorer"],
+        "PTS": ["", "", "", "12", "14", "", "", "22"],
+        "REB": ["", "7", "", "6", "4", "7", "", ""],
+        "AST": ["", "", "6", "", "", "", "", ""],
+        "BLK": ["", "1", "", "", "", "", "", ""],
+        "STL": ["", "", "", "", "1", "", "", ""],
+        "3PA": ["5", "", "", "", "", "2", "", ""],
+        "3P%": ["36%", "", "", "", "", "32%", "", ""],
+        "FG%": ["", "", "", "54%", "", "", "", ""],
+        "FGA": ["", "", "", "", "", "", "", "17"],
+        "AST/TOV": ["", "", "2", "", "", "", "", ""],
+        "STL+BLK": ["", "", "", "", "", "", "2", ""],
+        "MIN": ["", "", "", "", "", "", "27", ""],
+    }
+    rubric_df = pd.DataFrame(rubric_data)
+    st.dataframe(
+        rubric_df.style.set_properties(**{"text-align": "center"}).set_properties(subset=["Role"], **{"text-align": "left"}),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    st.markdown("---")
+    st.markdown("**Example Players** — select a role to see an example player that fits it:")
+
+    ALL_COLS = ["PTS", "REB", "AST", "BLK", "STL", "3PA", "3P%", "FG%", "FGA", "AST/TOV", "STL+BLK", "MIN"]
+
+    example_players = {
+        "Floor Spacer": {
+            "player": "Steph Curry (GSW)",
+            "standard": {"3PA": "5", "3P%": "36%"},
+            "performance": {"3PA": "12", "3P%": "40%"},
+        },
+        "Rim Protector": {
+            "player": "Rudy Gobert (MIN)",
+            "standard": {"REB": "7", "BLK": "1"},
+            "performance": {"REB": "12", "BLK": "2"},
+        },
+        "Playmaker": {
+            "player": "LeBron James (LAL)",
+            "standard": {"AST": "6", "AST/TOV": "2"},
+            "performance": {"AST": "8", "AST/TOV": "2"},
+        },
+        "Paint Scorer": {
+            "player": "Giannis Antetokounmpo (MIL)",
+            "standard": {"PTS": "12", "REB": "6", "FG%": "54%"},
+            "performance": {"PTS": "28", "REB": "11", "FG%": "58%"},
+        },
+        "Two-Way Wing": {
+            "player": "Kawhi Leonard (LAC)",
+            "standard": {"PTS": "14", "REB": "4", "STL": "1"},
+            "performance": {"PTS": "24", "REB": "7", "STL": "2"},
+        },
+        "Stretch Big": {
+            "player": "Kevin Durant (PHX)",
+            "standard": {"REB": "7", "3PA": "2", "3P%": "32%"},
+            "performance": {"REB": "7", "3PA": "5", "3P%": "38%"},
+        },
+        "Defensive Anchor": {
+            "player": "Draymond Green (GSW)",
+            "standard": {"STL+BLK": "2", "MIN": "27"},
+            "performance": {"STL+BLK": "2", "MIN": "30"},
+        },
+        "Volume Scorer": {
+            "player": "Luka Dončić (DAL)",
+            "standard": {"PTS": "22", "FGA": "17"},
+            "performance": {"PTS": "33", "FGA": "22"},
+        },
+        "Rotation Player": None,
+    }
+
+    selected_role = st.selectbox("Select a role", list(example_players.keys()), key="overview_role")
+
+    if example_players[selected_role] is None:
+        st.info("Rotation Player is the default label for players who don't meet the thresholds for any specific role. They still contribute but don't fit a clear archetype.")
+    else:
+        p = example_players[selected_role]
+        st.markdown(f"**Example: {p['player']} — {selected_role}**")
+        def build_row(label, stats):
+            row = {"": label}
+            for col in ALL_COLS:
+                row[col] = stats.get(col, "")
+            return row
+        example_df = pd.DataFrame([
+            build_row("Standard", p["standard"]),
+            build_row("Performance", p["performance"]),
+        ])
+        st.dataframe(
+            example_df.style.set_properties(**{"text-align": "center"}).set_properties(subset=[""], **{"text-align": "left"}),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.markdown("---")
+
+    st.subheader("Step 3 — Identify Team Needs")
+    st.markdown("""
+    - Every team starts with the same baseline role targets
+    - Targets are adjusted **up** for roles that address that team's statistical weaknesses
+    - The result is a customized set of needs unique to each team
+    - **Urgency score** = (target − actual) / target — higher means a bigger need
+    """)
+
+    _team_list_s3 = sorted(classified["team_abbr"].unique())
+    selected_team_step3 = st.selectbox("Select a team", _team_list_s3, index=_team_list_s3.index("TOR"), key="step3_team")
+
+    # a) Baseline needs
+    st.markdown("**a) Baseline needs — same for every team:**")
+    baseline_df = pd.DataFrame([
+        {"Role": role, "Base Target": count}
+        for role, count in IDEAL_ROSTER_COMPOSITION.items()
+    ])
+    st.dataframe(baseline_df, use_container_width=True, hide_index=True)
+
+    # b) Team performance vs league median
+    st.markdown("**b) Team performance vs. league median:**")
+    import numpy as np
+    league_profiles = {}
+    for team, roster in classified.groupby("team_abbr"):
+        league_profiles[team] = {
+            "Scoring (PTS)": roster["pts"].mean(),
+            "Rebounding (REB)": roster["reb"].mean(),
+            "Playmaking (AST)": roster["ast"].mean(),
+            "Defense (STL+BLK)": (roster["stl"] + roster["blk"]).mean(),
+            "Shooting (3P%)": roster["fg3_pct"].mean(),
+        }
+    medians = {stat: np.median([p[stat] for p in league_profiles.values()]) for stat in list(league_profiles.values())[0]}
+    team_profile = league_profiles[selected_team_step3]
+
+    adjustment_map = {
+        "Scoring (PTS)": "+1 Volume Scorer, +1 Floor Spacer",
+        "Rebounding (REB)": "+1 Rim Protector, +1 Paint Scorer",
+        "Playmaking (AST)": "+1 Playmaker",
+        "Defense (STL+BLK)": "+1 Defensive Anchor, +1 Two-Way Wing",
+        "Shooting (3P%)": "+1 Stretch Big, +1 Floor Spacer",
+    }
+    perf_rows = []
+    for stat, value in team_profile.items():
+        median = medians[stat]
+        below = value < median
+        perf_rows.append({
+            "Stat": stat,
+            "Team Value": round(value, 2),
+            "League Median": round(median, 2),
+            "Below Median?": "Yes" if below else "No",
+            "Adjustment": adjustment_map[stat] if below else "—",
+        })
+    st.dataframe(pd.DataFrame(perf_rows), use_container_width=True, hide_index=True)
+
+    # c) Customized targets
+    st.markdown("**c) Customized targets after adjustments:**")
+    adjusted = dict(IDEAL_ROSTER_COMPOSITION)
+    stat_to_role_bumps = {
+        "Scoring (PTS)": ["Volume Scorer", "Floor Spacer"],
+        "Rebounding (REB)": ["Rim Protector", "Paint Scorer"],
+        "Playmaking (AST)": ["Playmaker"],
+        "Defense (STL+BLK)": ["Defensive Anchor", "Two-Way Wing"],
+        "Shooting (3P%)": ["Stretch Big", "Floor Spacer"],
+    }
+    bumped_roles = set()
+    for stat, value in team_profile.items():
+        if value < medians[stat]:
+            for role in stat_to_role_bumps[stat]:
+                adjusted[role] = adjusted.get(role, 0) + 1
+                bumped_roles.add(role)
+    custom_rows = []
+    for role, base in IDEAL_ROSTER_COMPOSITION.items():
+        final = adjusted[role]
+        custom_rows.append({
+            "Role": role,
+            "Base Target": base,
+            "Adjustment": f"+{final - base}" if final > base else "—",
+            "Final Target": final,
+        })
+    st.dataframe(pd.DataFrame(custom_rows), use_container_width=True, hide_index=True)
+
+    # d) Gaps
+    st.markdown("**d) Gaps — actual roster vs. target:**")
+    team_roster_s3 = classified[classified["team_abbr"] == selected_team_step3]
+    gap_rows = []
+    for role, target in adjusted.items():
+        actual = (
+            (team_roster_s3["primary_role"] == role).sum()
+            + 0.5 * (team_roster_s3["secondary_role"] == role).sum()
+        )
+        urgency = round((target - actual) / target, 2)
+        gap_rows.append({
+            "Role": role,
+            "Target": target,
+            "Actual": round(actual, 1),
+            "Urgency Score": urgency,
+        })
+    gap_rows.sort(key=lambda x: x["Urgency Score"], reverse=True)
+    st.dataframe(pd.DataFrame(gap_rows), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+
+    st.subheader("Step 4 — Preference Ranking")
+    st.markdown("""
+    - For each team, all players available for trade from other teams are ranked by how well they fill that team's gaps
+    - **Preference score** = role urgency × quality score
+    - **Role urgency** — how badly does this team need the player's role? (from Step 3)
+    - **Quality score** — a weighted sum of per-game stats (see table below)
+    - The result is an ordered **wish list** for every team — the players they most want to acquire
+    """)
+
+    st.markdown("**Quality Score Formula:**")
+    quality_weights = pd.DataFrame([
+        {"Stat": "PTS", "Weight": "1.0"},
+        {"Stat": "REB", "Weight": "0.8"},
+        {"Stat": "AST", "Weight": "1.0"},
+        {"Stat": "STL", "Weight": "2.0"},
+        {"Stat": "BLK", "Weight": "2.0"},
+        {"Stat": "TOV", "Weight": "−1.5"},
+    ])
+    st.dataframe(quality_weights, use_container_width=False, hide_index=True)
+    st.markdown("*Note: this formula favors physical players (high BLK, REB, STL) and may undervalue shooters and playmakers — a known limitation of the current design.*")
+
+    st.markdown("**Top 15 preferred players by team (including own roster):**")
+    st.markdown("*Own-team players are included so you can verify that the algorithm always selects a player ranked higher than what the team gives up.*")
+    _team_list_s4 = sorted(classified["team_abbr"].unique())
+    selected_team_step4 = st.selectbox("Select a team", _team_list_s4, index=_team_list_s4.index("TOR"), key="step4_team")
+
+    def quality_score(row):
+        return row["pts"] * 1.0 + row["reb"] * 0.8 + row["ast"] * 1.0 + row["stl"] * 2.0 + row["blk"] * 2.0 - row["tov"] * 1.5
+
+    urgency_lookup = {role: max(u, 0) for role, u in gaps.get(selected_team_step4, [])}
+
+    # Build combined list: other-team preferences + own-team players scored the same way
+    combined = []
+    for pid, score in prefs.get(selected_team_step4, []):
+        player = classified[classified["player_id"] == pid]
+        if not player.empty:
+            combined.append((pid, round(score, 2), False))
+
+    own_roster = avail_df[(avail_df["team_abbr"] == selected_team_step4) & avail_df["available_for_trade"]]
+    for _, row in own_roster.iterrows():
+        role_urgency = urgency_lookup.get(row["primary_role"], 0)
+        if role_urgency == 0:
+            q = quality_score(row)
+            role_urgency = 0.05 + 0.15 * max(0, q / 30.0)
+        score = round(role_urgency * quality_score(row), 2)
+        combined.append((int(row["player_id"]), score, True))
+
+    combined.sort(key=lambda x: x[1], reverse=True)
+    combined = combined[:15]
+
+    team_prefs_step4 = combined
+    if team_prefs_step4:
+        pref_rows = []
+        for rank, (pid, score, is_own) in enumerate(team_prefs_step4, 1):
+            player = classified[classified["player_id"] == pid]
+            if not player.empty:
+                p = player.iloc[0]
+                pref_rows.append({
+                    "Rank": rank,
+                    "Player": p["player_name"],
+                    "Current Team": p["team_abbr"],
+                    "Role": p["primary_role"],
+                    "PTS": p["pts"],
+                    "REB": p["reb"],
+                    "AST": p["ast"],
+                    "Preference Score": score,
+                    "_own": is_own,
+                })
+        pref_df = pd.DataFrame(pref_rows)
+        display_df = pref_df.drop(columns=["_own"])
+
+        def highlight_s4(row):
+            match = pref_df.loc[row.name, "_own"]
+            if match:
+                return ["background-color: #2a2a1a; color: #cccc88"] * len(row)
+            return [""] * len(row)
+
+        st.dataframe(
+            display_df.style.apply(highlight_s4, axis=1),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        # AI-style summary
+        team_gap_lookup = {role: urgency for role, urgency in gaps.get(selected_team_step4, [])}
+        top_roles_needed = [role for role, urgency in sorted(gaps.get(selected_team_step4, []), key=lambda x: x[1], reverse=True) if urgency > 0][:3]
+        top_players = pref_rows[:3]
+
+        summary_lines = [f"**Why these players are attractive to {selected_team_step4}:**\n"]
+        if top_roles_needed:
+            summary_lines.append(f"{selected_team_step4}'s biggest needs are **{top_roles_needed[0]}**" +
+                (f", **{top_roles_needed[1]}**" if len(top_roles_needed) > 1 else "") +
+                (f", and **{top_roles_needed[2]}**" if len(top_roles_needed) > 2 else "") + ".")
+
+        for i, p in enumerate(top_players):
+            urgency = team_gap_lookup.get(p["Role"], 0)
+            if urgency > 0.5:
+                need_str = "a critical need"
+            elif urgency > 0:
+                need_str = "a moderate need"
+            else:
+                need_str = "a position of depth"
+            summary_lines.append(
+                f"- **{p['Player']}** ({p['Current Team']}) is a **{p['Role']}** — {selected_team_step4} has {need_str} at this role (urgency: {round(urgency, 2)}). "
+                f"With {p['PTS']} PPG, {p['REB']} RPG, and {p['AST']} APG, they score {p['Preference Score']} on the preference scale."
+            )
+
+        st.markdown("\n".join(summary_lines))
+
+    st.markdown("---")
+
+    st.subheader("Step 5 — TTC Matching")
+    st.markdown("""
+    - Each team's preference list feeds into the Top Trading Cycles algorithm
+    - A preference graph is built — each team points to its **top 5** preferred trade partners
+    - A cycle detection algorithm finds all valid trading cycles up to **6 teams** long
+    - **Longest cycles are selected first** — every team in a cycle receives a player they ranked higher than what they gave up
+    - No team appears in more than one cycle
+    """)
+
+    # Build team → cycle index and team → received player_id lookups
+    team_to_cycle_idx = {}
+    team_to_received_pid = {}
+    for ci, cycle in enumerate(cycles):
+        for trade in cycle["trades"]:
+            team_to_cycle_idx[trade["team"]] = ci
+            team_to_received_pid[trade["team"]] = trade["receives"]["player_id"]
+
+    if cycles:
+        ci = 0
+        cycle = cycles[0]
+        teams = cycle["cycle"]
+        cycle_label = f"Example Cycle:  {' → '.join(teams)} → {teams[0]}  ({len(teams)}-team trade)"
+
+        with st.expander(cycle_label, expanded=True):
+
+            # Visual gives/receives display
+            st.markdown("####")
+            cols = st.columns(len(teams))
+            for col, trade in zip(cols, cycle["trades"]):
+                with col:
+                    next_team = teams[(teams.index(trade["team"]) + 1) % len(teams)]
+                    st.markdown(f"""
+                    <div style='background:#1e1e2e;border-radius:10px;padding:14px;text-align:center;border:1px solid #444'>
+                        <div style='font-size:18px;font-weight:bold;color:#e0e0ff'>{trade['team']}</div>
+                        <div style='font-size:11px;color:#aaa;margin:6px 0'>gives ↓</div>
+                        <div style='font-size:13px;color:#ff9999'>{trade['gives']['player_name']}</div>
+                        <div style='font-size:10px;color:#888'>{trade['gives']['primary_role']}</div>
+                        <div style='font-size:11px;color:#aaa;margin:6px 0'>receives ↓</div>
+                        <div style='font-size:13px;color:#99ffcc'>{trade['receives']['player_name']}</div>
+                        <div style='font-size:10px;color:#888'>{trade['receives']['primary_role']}</div>
+                        <div style='font-size:10px;color:#666;margin-top:6px'>from {next_team}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            st.markdown("---")
+
+            # Dropdown: team preference ranking
+            selected_pref_team = st.selectbox(
+                "View preference ranking for a team in this cycle",
+                teams,
+                key="step5_cycle_0",
+            )
+
+            selected_pid = team_to_received_pid.get(selected_pref_team)
+            team_prefs_s5 = prefs.get(selected_pref_team, [])[:15]
+
+            # Find the player this team is giving away
+            gives_info = next((t["gives"] for t in cycle["trades"] if t["team"] == selected_pref_team), None)
+
+            pref_rows_s5 = []
+            for rank, (pid, score) in enumerate(team_prefs_s5, 1):
+                player = classified[classified["player_id"] == pid]
+                if player.empty:
+                    continue
+                p = player.iloc[0]
+                status = "Receives" if pid == selected_pid else ""
+                pref_rows_s5.append({
+                    "Rank": rank,
+                    "Player": p["player_name"],
+                    "From": p["team_abbr"],
+                    "Role": p["primary_role"],
+                    "Preference Score": round(score, 2),
+                    "Status": status,
+                })
+
+            # Prepend the "gives" row
+            if gives_info:
+                pref_rows_s5.insert(0, {
+                    "Rank": "—",
+                    "Player": gives_info["player_name"],
+                    "From": selected_pref_team,
+                    "Role": gives_info["primary_role"],
+                    "Preference Score": "—",
+                    "Status": "Gives",
+                })
+
+            pref_df_s5 = pd.DataFrame(pref_rows_s5)
+
+            def highlight_s5(row):
+                if row["Status"] == "Receives":
+                    return ["background-color: #1a4731; color: white"] * len(row)
+                if row["Status"] == "Gives":
+                    return ["background-color: #4a1a1a; color: white"] * len(row)
+                return [""] * len(row)
+
+            st.dataframe(
+                pref_df_s5.style.apply(highlight_s5, axis=1),
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    st.markdown("---")
 
 # --- AI EVALUATION TAB ---
 with tab_eval:
