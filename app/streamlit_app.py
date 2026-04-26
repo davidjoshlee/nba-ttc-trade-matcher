@@ -83,11 +83,13 @@ min_minutes = st.sidebar.slider(
 )
 
 st.sidebar.markdown("---")
+_default_key = st.secrets.get("OPENAI_API_KEY", "") if hasattr(st, "secrets") else ""
 openai_api_key = st.sidebar.text_input(
     "OpenAI API Key",
+    value=_default_key,
     type="password",
     placeholder="sk-...",
-    help="Enter your OpenAI key to enable AI-generated trade narratives",
+    help="Enter your OpenAI key, or store it in .streamlit/secrets.toml",
 )
 
 # --- Data loading & pipeline ---

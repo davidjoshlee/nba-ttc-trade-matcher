@@ -26,3 +26,4 @@ Thumbs.db
 src/data/cache/*.csv
 src/data/cache/*.json
 .env
+.streamlit/secrets.toml
