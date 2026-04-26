@@ -163,7 +163,25 @@ p { color: #CBD5E1; }
 [data-testid="stSelectbox"] label { color: #94A3B8 !important; font-size: 12px !important; }
 
 /* Caption */
-[data-testid="stCaptionContainer"] p { color: #64748B !important; font-size: 12px !important; }
+[data-testid="stCaptionContainer"] p { color: #94A3B8 !important; font-size: 12px !important; }
+
+/* Text inputs — dark background, light text */
+[data-testid="stTextInput"] input {
+    background: #131926 !important;
+    color: #E2E8F0 !important;
+    border: 1px solid #1A2235 !important;
+    border-radius: 8px !important;
+}
+[data-testid="stTextInput"] input::placeholder { color: #4A5568 !important; }
+[data-testid="stTextInput"] label { color: #94A3B8 !important; }
+
+/* Slider label and value */
+[data-testid="stSlider"] label { color: #94A3B8 !important; }
+[data-testid="stSlider"] [data-testid="stTickBarMin"],
+[data-testid="stSlider"] [data-testid="stTickBarMax"] { color: #64748B !important; }
+
+/* Tooltip help text */
+[data-testid="stTooltipIcon"] { color: #4A5568 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -171,7 +189,7 @@ p { color: #CBD5E1; }
 st.sidebar.markdown("""
 <div style='padding:12px 0 20px;'>
   <div style='font-size:20px;font-weight:800;color:#C89B3C;letter-spacing:-0.3px;'>NBA Trade Matcher</div>
-  <div style='font-size:10px;color:#64748B;text-transform:uppercase;letter-spacing:2px;margin-top:5px;'>Top Trading Cycles · OIT 277</div>
+  <div style='font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:2px;margin-top:5px;'>Top Trading Cycles · OIT 277</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -217,7 +235,7 @@ with st.spinner("Loading trade intelligence..."):
 multi_count = sum(1 for c in cycles if c["num_teams"] > 2)
 st.sidebar.markdown("---")
 st.sidebar.markdown(
-    f"<div style='font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;'>Current Run</div>"
+    f"<div style='font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;'>Current Run</div>"
     f"<div style='font-size:13px;line-height:2;color:#6B7A99;'>"
     f"<span style='color:#C89B3C;font-weight:700;'>{len(classified)}</span> players analyzed<br>"
     f"<span style='color:#C89B3C;font-weight:700;'>{len(cycles)}</span> trade cycles found<br>"
@@ -236,7 +254,7 @@ tab_overview, tab_dashboard, tab_teams, tab_trades, tab_eval = st.tabs([
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_dashboard:
     st.markdown("<h1>League Dashboard</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color:#64748B;margin-top:-8px;margin-bottom:28px;'>2024–25 NBA Season</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#94A3B8;margin-top:-8px;margin-bottom:28px;'>2024–25 NBA Season</p>", unsafe_allow_html=True)
 
     c1, c2, c3, c4 = st.columns(4)
     with c1: st.metric("Players Analyzed", len(classified))
@@ -283,7 +301,7 @@ with tab_dashboard:
             st.pyplot(fig)
             plt.close()
 
-            st.markdown("<div style='font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:1px;margin-top:16px;margin-bottom:8px;'>Each color = one trade cycle</div>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:11px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;margin-top:16px;margin-bottom:8px;'>Each color = one trade cycle</div>", unsafe_allow_html=True)
             legend_html = "<div style='display:flex;flex-direction:column;gap:6px;'>"
             for i, cycle in enumerate(cycles):
                 color = CYCLE_COLORS[i % len(CYCLE_COLORS)]
@@ -292,7 +310,7 @@ with tab_dashboard:
                     f"<div style='display:flex;align-items:center;gap:10px;'>"
                     f"<span style='width:12px;height:12px;border-radius:50%;background:{color};flex-shrink:0;display:inline-block;'></span>"
                     f"<span style='font-size:12px;color:#CBD5E1;font-weight:600;'>{teams_str}</span>"
-                    f"<span style='font-size:11px;color:#64748B;'>({cycle['num_teams']}-team)</span>"
+                    f"<span style='font-size:11px;color:#94A3B8;'>({cycle['num_teams']}-team)</span>"
                     f"</div>"
                 )
             legend_html += "</div>"
@@ -324,7 +342,7 @@ with tab_dashboard:
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_teams:
     st.markdown("<h1>Team Explorer</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color:#64748B;margin-top:-8px;margin-bottom:24px;'>Roster breakdown, role composition, and trade targets for any team</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#94A3B8;margin-top:-8px;margin-bottom:24px;'>Roster breakdown, role composition, and trade targets for any team</p>", unsafe_allow_html=True)
 
     team_list = sorted(classified["team_abbr"].unique())
     selected_team = st.selectbox("Select a team", team_list)
@@ -429,11 +447,11 @@ with tab_trades:
                         st.markdown(f"""
                         <div style='background:#0E1118;border:1px solid #1A2235;border-radius:14px;padding:18px 14px;text-align:center;'>
                           <div style='font-size:17px;font-weight:800;color:#C89B3C;letter-spacing:1px;margin-bottom:16px;'>{trade['team']}</div>
-                          <div style='font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px;'>Sends</div>
+                          <div style='font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px;'>Sends</div>
                           <div style='font-size:14px;font-weight:700;color:#EF4444;'>{g['player_name']}</div>
                           <div style='font-size:10px;color:#94A3B8;margin-top:3px;margin-bottom:14px;'>{g['primary_role']} &nbsp;·&nbsp; {g['pts']} / {g['reb']} / {g['ast']}</div>
                           <div style='border-top:1px solid #1A2235;margin:0 auto 14px;width:60%;'></div>
-                          <div style='font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px;'>Receives</div>
+                          <div style='font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px;'>Receives</div>
                           <div style='font-size:14px;font-weight:700;color:#22C55E;'>{r['player_name']}</div>
                           <div style='font-size:10px;color:#94A3B8;margin-top:3px;'>{r['primary_role']} &nbsp;·&nbsp; {r['pts']} / {r['reb']} / {r['ast']}</div>
                         </div>
@@ -470,7 +488,7 @@ with tab_trades:
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_overview:
     st.markdown("<h1>How It Works</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color:#64748B;margin-top:-8px;margin-bottom:24px;'>A 6-stage data pipeline that surfaces multi-team NBA trade opportunities.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#94A3B8;margin-top:-8px;margin-bottom:24px;'>A 6-stage data pipeline that surfaces multi-team NBA trade opportunities.</p>", unsafe_allow_html=True)
     st.markdown("---")
 
     st.markdown("<h3 style='color:#C89B3C;'>Step 1 — Data Collection</h3>", unsafe_allow_html=True)
@@ -692,13 +710,13 @@ with tab_overview:
                     st.markdown(f"""
                     <div style='background:#0E1118;border:1px solid #1A2235;border-radius:12px;padding:14px;text-align:center;'>
                       <div style='font-size:17px;font-weight:800;color:#C89B3C;margin-bottom:12px;'>{trade['team']}</div>
-                      <div style='font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;'>Sends</div>
+                      <div style='font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;'>Sends</div>
                       <div style='font-size:13px;font-weight:700;color:#EF4444;'>{trade['gives']['player_name']}</div>
                       <div style='font-size:10px;color:#94A3B8;margin-bottom:10px;'>{trade['gives']['primary_role']}</div>
-                      <div style='font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;'>Receives</div>
+                      <div style='font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px;'>Receives</div>
                       <div style='font-size:13px;font-weight:700;color:#22C55E;'>{trade['receives']['player_name']}</div>
                       <div style='font-size:10px;color:#94A3B8;'>{trade['receives']['primary_role']}</div>
-                      <div style='font-size:10px;color:#64748B;margin-top:8px;'>from {nt}</div>
+                      <div style='font-size:10px;color:#94A3B8;margin-top:8px;'>from {nt}</div>
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -778,7 +796,7 @@ with tab_overview:
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_eval:
     st.markdown("<h1>AI Evaluation</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color:#64748B;margin-top:-8px;margin-bottom:24px;'>Where the algorithm works well — and where it falls short.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#94A3B8;margin-top:-8px;margin-bottom:24px;'>Where the algorithm works well — and where it falls short.</p>", unsafe_allow_html=True)
 
     st.markdown("<h3 style='color:#C89B3C;'>1. Role Classification</h3>", unsafe_allow_html=True)
     st.markdown("""
