@@ -16,6 +16,8 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use("Agg")
 
+from openai import OpenAI
+
 from src.data.fetch_rosters import fetch_player_stats
 from src.roles.classifier import classify_all_players
 from src.preferences.gap_analysis import analyze_team_gaps
@@ -23,6 +25,37 @@ from src.preferences.ranker import generate_preferences, identify_available_play
 from src.matching.ttc import run_ttc
 from src.narrative.explainer import explain_all_cycles
 from src.config import IDEAL_ROSTER_COMPOSITION
+
+
+def generate_ai_narrative(cycle: dict, api_key: str) -> str:
+    """Call OpenAI gpt-4o to generate a narrative explanation for a trade cycle."""
+    trades = cycle["trades"]
+    lines = []
+    for t in trades:
+        g, r = t["gives"], t["receives"]
+        lines.append(
+            f"- {t['team']} sends {g['player_name']} ({g['primary_role']}, "
+            f"{g['pts']} PPG/{g['reb']} RPG/{g['ast']} APG) and receives "
+            f"{r['player_name']} ({r['primary_role']}, {r['pts']} PPG/{r['reb']} RPG/{r['ast']} APG)"
+        )
+    trade_summary = "\n".join(lines)
+    n = len(trades)
+
+    prompt = (
+        f"You are an NBA analyst. Explain in 3-4 sentences why this {n}-team trade makes sense "
+        f"for each team. Be specific about roster fit, what each team gains, and why they give up "
+        f"what they do. Keep it conversational and insightful — like an ESPN breakdown.\n\n"
+        f"Trade details:\n{trade_summary}"
+    )
+
+    client = OpenAI(api_key=api_key)
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=300,
+        temperature=0.7,
+    )
+    return response.choices[0].message.content.strip()
 
 # --- Page config ---
 st.set_page_config(
@@ -47,6 +80,14 @@ min_minutes = st.sidebar.slider(
     "Minimum minutes/game",
     min_value=5.0, max_value=20.0, value=10.0, step=1.0,
     help="Only include players averaging at least this many minutes per game"
+)
+
+st.sidebar.markdown("---")
+openai_api_key = st.sidebar.text_input(
+    "OpenAI API Key",
+    type="password",
+    placeholder="sk-...",
+    help="Enter your OpenAI key to enable AI-generated trade narratives",
 )
 
 # --- Data loading & pipeline ---
@@ -226,15 +267,16 @@ with tab_trades:
             reverse=True,
         )
 
-        for cycle, explanation in sorted_cycles:
+        if not openai_api_key:
+            st.info("Enter your OpenAI API key in the sidebar to enable AI-generated trade narratives.")
+
+        for i, (cycle, explanation) in enumerate(sorted_cycles):
             teams = cycle["cycle"]
             label = f"{'⭐ ' if cycle['num_teams'] > 2 else ''}{cycle['num_teams']}-Team Trade: {' ↔ '.join(teams)}"
 
             with st.expander(label, expanded=cycle["num_teams"] > 2):
-                st.markdown(f"*{explanation['summary']}*")
-                st.markdown("---")
-
-                for trade, detail in zip(cycle["trades"], explanation["team_details"]):
+                # Trade breakdown
+                for trade in cycle["trades"]:
                     col1, col2, col3 = st.columns([1, 0.5, 1])
                     with col1:
                         g = trade["gives"]
@@ -249,8 +291,24 @@ with tab_trades:
                         st.markdown(f"**{trade['team']}** receives:")
                         st.markdown(f"**{r['player_name']}** ({r['primary_role']})")
                         st.caption(f"{r['pts']} PPG / {r['reb']} RPG / {r['ast']} APG")
+                    st.markdown("")
 
-                    st.markdown(f"> {detail}")
+                st.markdown("---")
+
+                # AI narrative
+                cache_key = f"ai_narrative_{i}"
+                if openai_api_key:
+                    if cache_key not in st.session_state:
+                        with st.spinner("Generating AI analysis..."):
+                            try:
+                                st.session_state[cache_key] = generate_ai_narrative(cycle, openai_api_key)
+                            except Exception as e:
+                                st.session_state[cache_key] = f"⚠️ Could not generate narrative: {e}"
+                    st.markdown(f"**AI Analysis**\n\n{st.session_state[cache_key]}")
+                else:
+                    st.markdown(f"*{explanation['summary']}*")
+                    for detail in explanation["team_details"]:
+                        st.markdown(f"> {detail}")
                     st.markdown("")
 
 # --- APP OVERVIEW TAB ---
