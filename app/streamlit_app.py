@@ -32,6 +32,7 @@ st.set_page_config(
 )
 
 # --- Sidebar ---
+st.sidebar.image("https://upload.wikimedia.org/wikipedia/en/thumb/0/03/National_Basketball_Association_logo.svg/220px-National_Basketball_Association_logo.svg.png", width=80)
 st.sidebar.title("NBA Trade Matcher")
 st.sidebar.markdown("**Leveraging the Top Trading Cycles Algorithm**")
 st.sidebar.markdown("OIT 277 — Digital Platforms in AI")
