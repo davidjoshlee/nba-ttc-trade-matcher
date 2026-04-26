@@ -131,8 +131,8 @@ st.sidebar.markdown(
 )
 
 # --- Tabs ---
-tab_dashboard, tab_teams, tab_trades, tab_eval, tab_overview = st.tabs([
-    "Dashboard", "Team Explorer", "Trade Cycles", "AI Evaluation", "App Overview"
+tab_overview, tab_dashboard, tab_teams, tab_trades, tab_eval = st.tabs([
+    "App Overview", "Dashboard", "Team Explorer", "Trade Cycles", "AI Evaluation"
 ])
 
 # --- DASHBOARD TAB ---
@@ -562,8 +562,8 @@ with tab_overview:
     st.dataframe(quality_weights, use_container_width=False, hide_index=True)
     st.markdown("*Note: this formula favors physical players (high BLK, REB, STL) and may undervalue shooters and playmakers — a known limitation of the current design.*")
 
-    st.markdown("**Top 15 preferred players by team (including own roster):**")
-    st.markdown("*Own-team players are included so you can verify that the algorithm always selects a player ranked higher than what the team gives up.*")
+    st.markdown("**Full league preference ranking:**")
+    st.markdown("*Own-team players are highlighted — the algorithm guarantees every trade gives a team a player ranked higher than anyone on their own roster.*")
     _team_list_s4 = sorted(classified["team_abbr"].unique())
     selected_team_step4 = st.selectbox("Select a team", _team_list_s4, index=_team_list_s4.index("TOR"), key="step4_team")
 
@@ -572,24 +572,21 @@ with tab_overview:
 
     urgency_lookup = {role: max(u, 0) for role, u in gaps.get(selected_team_step4, [])}
 
-    # Build combined list: other-team preferences + own-team players scored the same way
+    # Score every player in the league
     combined = []
-    for pid, score in prefs.get(selected_team_step4, []):
-        player = classified[classified["player_id"] == pid]
-        if not player.empty:
-            combined.append((pid, round(score, 2), False))
-
-    own_roster = avail_df[(avail_df["team_abbr"] == selected_team_step4) & avail_df["available_for_trade"]]
-    for _, row in own_roster.iterrows():
+    for _, row in classified.iterrows():
+        is_own = row["team_abbr"] == selected_team_step4
         role_urgency = urgency_lookup.get(row["primary_role"], 0)
+        if row.get("secondary_role"):
+            sec_urgency = urgency_lookup.get(row["secondary_role"], 0)
+            role_urgency = max(role_urgency, 0.5 * sec_urgency)
         if role_urgency == 0:
             q = quality_score(row)
             role_urgency = 0.05 + 0.15 * max(0, q / 30.0)
         score = round(role_urgency * quality_score(row), 2)
-        combined.append((int(row["player_id"]), score, True))
+        combined.append((int(row["player_id"]), score, is_own))
 
     combined.sort(key=lambda x: x[1], reverse=True)
-    combined = combined[:15]
 
     team_prefs_step4 = combined
     if team_prefs_step4:
@@ -609,17 +606,20 @@ with tab_overview:
                     "Preference Score": score,
                     "_own": is_own,
                 })
-        pref_df = pd.DataFrame(pref_rows)
-        display_df = pref_df.drop(columns=["_own"])
+        pref_df = pd.DataFrame(pref_rows).drop(columns=["_own"])
+        pref_df["Preference Score"] = pref_df["Preference Score"].apply(lambda x: round(x, 2) if isinstance(x, float) else x)
+        for col in ["PTS", "REB", "AST"]:
+            pref_df[col] = pref_df[col].apply(lambda x: round(x, 1) if isinstance(x, float) else x)
+
+        st.markdown("🟡 **Highlighted rows** — players on this team's own roster")
 
         def highlight_s4(row):
-            match = pref_df.loc[row.name, "_own"]
-            if match:
-                return ["background-color: #2a2a1a; color: #cccc88"] * len(row)
+            if row["Current Team"] == selected_team_step4:
+                return ["background-color: #3a3a1a; color: #dddd99"] * len(row)
             return [""] * len(row)
 
         st.dataframe(
-            display_df.style.apply(highlight_s4, axis=1),
+            pref_df.style.apply(highlight_s4, axis=1),
             use_container_width=True,
             hide_index=True,
         )
@@ -706,39 +706,56 @@ with tab_overview:
             )
 
             selected_pid = team_to_received_pid.get(selected_pref_team)
-            team_prefs_s5 = prefs.get(selected_pref_team, [])[:15]
-
-            # Find the player this team is giving away
             gives_info = next((t["gives"] for t in cycle["trades"] if t["team"] == selected_pref_team), None)
+            gives_pid = gives_info["player_id"] if gives_info else None
+
+            urgency_lookup_s5 = {role: max(u, 0) for role, u in gaps.get(selected_pref_team, [])}
+
+            # Score every player in the league
+            all_scored = []
+            for _, row in classified.iterrows():
+                is_own = row["team_abbr"] == selected_pref_team
+                role_urgency = urgency_lookup_s5.get(row["primary_role"], 0)
+                if row.get("secondary_role"):
+                    sec_urgency = urgency_lookup_s5.get(row["secondary_role"], 0)
+                    role_urgency = max(role_urgency, 0.5 * sec_urgency)
+                if role_urgency == 0:
+                    q = quality_score(row)
+                    role_urgency = 0.05 + 0.15 * max(0, q / 30.0)
+                score = round(role_urgency * quality_score(row), 2)
+                all_scored.append((int(row["player_id"]), score, is_own))
+
+            all_scored.sort(key=lambda x: x[1], reverse=True)
 
             pref_rows_s5 = []
-            for rank, (pid, score) in enumerate(team_prefs_s5, 1):
+            for rank, (pid, score, is_own) in enumerate(all_scored, 1):
                 player = classified[classified["player_id"] == pid]
                 if player.empty:
                     continue
                 p = player.iloc[0]
-                status = "Receives" if pid == selected_pid else ""
+                if pid == selected_pid:
+                    status = "Receives"
+                elif pid == gives_pid:
+                    status = "Gives"
+                else:
+                    status = ""
                 pref_rows_s5.append({
                     "Rank": rank,
                     "Player": p["player_name"],
                     "From": p["team_abbr"],
                     "Role": p["primary_role"],
-                    "Preference Score": round(score, 2),
+                    "Preference Score": score,
                     "Status": status,
+                    "_own": is_own,
                 })
 
-            # Prepend the "gives" row
-            if gives_info:
-                pref_rows_s5.insert(0, {
-                    "Rank": "—",
-                    "Player": gives_info["player_name"],
-                    "From": selected_pref_team,
-                    "Role": gives_info["primary_role"],
-                    "Preference Score": "—",
-                    "Status": "Gives",
-                })
+            pref_df_s5 = pd.DataFrame(pref_rows_s5).drop(columns=["_own"])
+            pref_df_s5["Preference Score"] = pref_df_s5["Preference Score"].apply(lambda x: round(x, 2) if isinstance(x, float) else x)
 
-            pref_df_s5 = pd.DataFrame(pref_rows_s5)
+            st.markdown(
+                "🟢 **Receives** — player this team acquires in the trade &nbsp;&nbsp; 🔴 **Gives** — player this team sends away",
+                unsafe_allow_html=True,
+            )
 
             def highlight_s5(row):
                 if row["Status"] == "Receives":
@@ -752,6 +769,53 @@ with tab_overview:
                 use_container_width=True,
                 hide_index=True,
             )
+
+    st.markdown("---")
+
+    st.subheader("Step 6 — Trade Narratives")
+    st.markdown("""
+    - For every completed cycle, the app generates a plain-English explanation of each trade
+    - Each narrative explains **who the team gives up**, **who they receive**, and **why it fills their gap**
+    - Narratives are **template-based** — no AI API required, zero risk of hallucination
+    - The tradeoff: templates are deterministic and accurate but less varied than LLM-generated text
+    """)
+
+    st.markdown("**How a narrative is built:**")
+    st.markdown("""
+    1. Identify the team's **top unmet need** (highest urgency role from Step 3)
+    2. Fill in a template with the player being received, their stats, the player being sent away, and the source/destination teams
+    3. Pick randomly from a small set of template variants to add some variety
+    """)
+
+    st.markdown("**Example template:**")
+    st.code(
+        '"{team} addresses their need at {needed_role} by acquiring {receives_name} '
+        '({receives_pts}/{receives_reb}/{receives_ast}) from {source_team}, '
+        'while parting with {gives_name} — a position where they had depth to spare."',
+        language="text",
+    )
+
+    if explanations and cycles:
+        st.markdown("**Live example — first trade cycle:**")
+        ex_cycle = cycles[0]
+        ex_explanation = explanations[0]
+        st.markdown(f"*{ex_explanation['summary']}*")
+        for trade, detail in zip(ex_cycle["trades"], ex_explanation["team_details"]):
+            st.markdown(f"- {detail}")
+
+    st.markdown("---")
+
+    st.subheader("Step 7 — Explore the Results")
+    st.markdown("Use the tabs at the top of the page to explore the full output:")
+
+    st.markdown("""
+    | Tab | What it shows |
+    |---|---|
+    | **Dashboard** | High-level summary — total players, teams, cycles found, and a visual network graph of all trades |
+    | **Team Explorer** | Select any team to see their full roster, role composition, gaps, and top trade targets |
+    | **Trade Cycles** | Every trade cycle in detail — who each team gives and receives, with narrative explanations |
+    | **AI Evaluation** | Honest assessment of where the algorithm works well and where it falls short |
+    """)
 
     st.markdown("---")
 
