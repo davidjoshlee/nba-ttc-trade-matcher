@@ -203,15 +203,12 @@ min_minutes = st.sidebar.slider(
     help="Exclude players below this playing time threshold",
 )
 
-st.sidebar.markdown("---")
-_default_key = st.secrets.get("OPENAI_API_KEY", "") if hasattr(st, "secrets") else ""
-openai_api_key = st.sidebar.text_input(
-    "OpenAI API Key",
-    value=_default_key,
-    type="password",
-    placeholder="sk-...",
-    help="Required for AI-generated trade narratives",
-)
+# Load OpenAI key from secrets (set via Streamlit Cloud Secrets or .streamlit/secrets.toml)
+openai_api_key = ""
+try:
+    openai_api_key = st.secrets["OPENAI_API_KEY"]
+except (KeyError, FileNotFoundError):
+    pass
 
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 @st.cache_data
